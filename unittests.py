@@ -16,14 +16,14 @@ class TestDeckOfCards(TestCase):
         deck = deck_of_cards.Deck()
         result = len(deck)
         self.assertEqual(result, 52)
-    
+
     def test_deck_shuffle(self):
         deck1 = deck_of_cards.Deck()
         deck2 = deck_of_cards.Deck()
         deck2.shuffle()
         result = deck1 == deck2
         self.assertFalse(result)
-    
+
     def test_deck_deal(self):
         deck = deck_of_cards.Deck()
         dealt_card = deck.deal()
@@ -52,6 +52,13 @@ class TestPlayer(TestCase):
         result = hand1.cards == hand2.cards
         self.assertFalse(result)
 
+    def test_hand_add_card_not_ace(self):
+        hand1 = player.Hand()
+        card = deck_of_cards.Card('Hearts', 'Four')
+        hand1.add_card(card)
+        result = hand1.aces == 0
+        self.assertTrue(result)
+
     def test_hand_add_card_ace_counter(self):
         hand1 = player.Hand()
         hand1.add_card(deck_of_cards.Card('Hearts', 'Ace'))
@@ -75,6 +82,36 @@ class TestPlayer(TestCase):
         result = hand1.value
         self.assertEqual(result, 12)
 
+    def test_hand_adjust_for_ace_with_value_under_21(self):
+        hand1 = player.Hand()
+        hand1.add_card(deck_of_cards.Card('Diamonds', 'Ace'))
+        hand1.add_card(deck_of_cards.Card('Spades', 'Four'))
+        value_pre_adjustment = hand1.value
+        aces_pre_adjustment = hand1.aces
+        hand1.adjust_for_ace()
+        result = (value_pre_adjustment == hand1.value and aces_pre_adjustment == hand1.aces)
+        self.assertTrue(result)
+
+    def test_hand_adjust_for_ace_with_value_above_21_and_aces(self):
+        hand1 = player.Hand()
+        hand1.add_card(deck_of_cards.Card('Diamonds', 'Ace'))
+        hand1.add_card(deck_of_cards.Card('Spades', 'Ace'))
+        aces_pre_adjustment = hand1.aces
+        hand1.adjust_for_ace()
+        result = (hand1.value == 12 and aces_pre_adjustment != hand1.aces)
+        self.assertTrue(result)
+
+    def test_hand_adjust_for_ace_with_value_above_21_no_ace(self):
+        hand1 = player.Hand()
+        hand1.add_card(deck_of_cards.Card('Diamonds', 'King'))
+        hand1.add_card(deck_of_cards.Card('Spades', 'Queen'))
+        hand1.add_card(deck_of_cards.Card('Spades', 'Seven'))
+        value_pre_adjustment = hand1.value
+        aces_pre_adjustment = hand1.aces
+        hand1.adjust_for_ace()
+        result = (value_pre_adjustment == hand1.value and aces_pre_adjustment == hand1.aces)
+        self.assertTrue(result)
+
     ############################################################
     # Tests for Chips Class ####################################
     ############################################################
@@ -84,7 +121,7 @@ class TestPlayer(TestCase):
         chips.win_bet()
         result = chips.total
         self.assertEqual(result, 150)
-    
+
     def test_chips_lose_bet(self):
         chips = player.Chips(total=100)
         chips.bet = 50
@@ -94,8 +131,17 @@ class TestPlayer(TestCase):
 
 class TestBlackjack(TestCase):
 
-    @patch('builtins.input', return_value=50)
-    def test_take_bet_valid_int(self, input):
+    @patch('builtins.input', return_value=-1)
+    def test_take_bet_lower_boundary_invalid_int(self, input):
+        captured_output = StringIO()
+        sys.stdout = captured_output # Redirects the output (print)
+        chips = player.Chips(total=100)
+        blackjack.take_bet(chips)
+        sys.stdout = sys.__stdout__ # Resets the redirect
+        self.assertEqual(chips.bet, 1)
+
+    @patch('builtins.input', return_value=-50)
+    def test_take_bet_lower_boundary_invalid_int_large(self, input):
         captured_output = StringIO()
         sys.stdout = captured_output # Redirects the output (print)
         chips = player.Chips(total=100)
@@ -103,21 +149,87 @@ class TestBlackjack(TestCase):
         sys.stdout = sys.__stdout__ # Resets the redirect
         self.assertEqual(chips.bet, 50)
 
-    @patch('builtins.input', return_value=-50)
-    def test_take_bet_negative_int(self, input):
+    @patch('builtins.input', return_value=0)
+    def test_take_bet_lower_boundary_valid_int_zero(self, input):
+        captured_output = StringIO()
+        sys.stdout = captured_output # Redirects the output (print)
+        chips = player.Chips(total=100)
+        blackjack.take_bet(chips)
+        sys.stdout = sys.__stdout__ # Resets the redirect
+        self.assertEqual(chips.bet, 0)
+
+    @patch('builtins.input', return_value=1)
+    def test_take_bet_lower_boundary_valid_int_one(self, input):
+        captured_output = StringIO()
+        sys.stdout = captured_output # Redirects the output (print)
+        chips = player.Chips(total=100)
+        blackjack.take_bet(chips)
+        sys.stdout = sys.__stdout__ # Resets the redirect
+        self.assertEqual(chips.bet, 1)
+
+    @patch('builtins.input', return_value=50)
+    def test_take_bet_valid_int_medium_value(self, input):
         captured_output = StringIO()
         sys.stdout = captured_output # Redirects the output (print)
         chips = player.Chips(total=100)
         blackjack.take_bet(chips)
         sys.stdout = sys.__stdout__ # Resets the redirect
         self.assertEqual(chips.bet, 50)
-    
+
+    @patch('builtins.input', return_value=99)
+    def test_take_bet_valid_int_below_total(self, input):
+        captured_output = StringIO()
+        sys.stdout = captured_output # Redirects the output (print)
+        chips = player.Chips(total=100)
+        blackjack.take_bet(chips)
+        sys.stdout = sys.__stdout__ # Resets the redirect
+        self.assertEqual(chips.bet, 99)
+
+    @patch('builtins.input', return_value=100)
+    def test_take_bet_valid_int_equal_to_total_chips(self, input):
+        captured_output = StringIO()
+        sys.stdout = captured_output # Redirects the output (print)
+        chips = player.Chips(total=100)
+        blackjack.take_bet(chips)
+        sys.stdout = sys.__stdout__ # Resets the redirect
+        self.assertEqual(chips.bet, 100)
+
+    # Test doesn't work due to while True loop
+    #@patch('builtins.input', return_value='string')
+    #def test_take_bet_invalid_int_found_string(self, input):
+    #    captured_output = StringIO()
+    #    sys.stdout = captured_output # Redirects the output (print)
+    #    chips = player.Chips(total=100)
+    #    blackjack.take_bet(chips)
+    #    sys.stdout = sys.__stdout__ # Resets the redirect
+    #    self.assertRaises(ValueError)
+
+    # Test doesn't work due to while True loop
+    #@patch('builtins.input', return_value=101)
+    #def test_take_bet_invalid_int_above_total_chips(self, input):
+    #    captured_output = StringIO()
+    #    sys.stdout = captured_output # Redirects the output (print)
+    #    chips = player.Chips(total=100)
+    #    blackjack.take_bet(chips)
+    #    sys.stdout = sys.__stdout__ # Resets the redirect
+    #    self.assertEquals(captured_output.getvalue(), 'Insufficient Funds - You may not place a bet larger than $100')
+
+    # Test doesn't work due to while True loop
+    #@patch('builtins.input', return_value=150)
+    #def test_take_bet_invalid_int_above_total_chips_large(self, input):
+    #    captured_output = StringIO()
+    #    sys.stdout = captured_output # Redirects the output (print)
+    #    chips = player.Chips(total=100)
+    #    blackjack.take_bet(chips)
+    #    sys.stdout = sys.__stdout__ # Resets the redirect
+    #    self.assertEquals(captured_output.getvalue(), 'Insufficient Funds - You may not place a bet larger than $100')
+
     def test_hit(self):
         deck = deck_of_cards.Deck()
         hand = player.Hand()
         blackjack.hit(deck, hand)
         self.assertEqual(len(hand.cards), 1)
-    
+
     @patch('builtins.input', return_value='Hit')
     def test_hit_or_stand_case_hit(self, input):
         deck = deck_of_cards.Deck()
