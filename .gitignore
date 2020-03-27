@@ -125,3 +125,9 @@ dmypy.json
 
 # IDEA
 .idea
+
+# Mac
+.DS_Store
+
+# Docker
+create_docker.sh
